@@ -3,6 +3,9 @@ import pickle
 import pandas as pd
 import requests
 import os
+import ast
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
@@ -66,11 +69,112 @@ def recommend(movie):
 
     return recommended_movies_names, recommended_movies_posters
 
-st.header("Movie Recommender System with AI")
-movies = pickle.load(open("movies_dict.pkl", "rb"))
-movies = pd.DataFrame(movies)
+def load_or_create_data():
+    """
+    Load pickled data if available, otherwise create from CSV files.
+    This ensures the app works even if pickle files are corrupted or missing.
+    """
+    try:
+        # Try to load existing pickle files
+        movies = pickle.load(open("movies_dict.pkl", "rb"))
+        movies = pd.DataFrame(movies)
+        similarity = pickle.load(open("similarity.pkl", "rb"))
+        st.info("✅ Loaded data from pickle files")
+        return movies, similarity
+    except Exception as e:
+        st.warning(f"⚠️ Could not load pickle files ({str(e)}), rebuilding from CSV files...")
+        st.info("🔄 This may take a few minutes...")
+        
+        try:
+            # Rebuild data from CSV files
+            movies_df = pd.read_csv("tmdb_5000_movies.csv")
+            credits_df = pd.read_csv("tmdb_5000_credits.csv")
+            
+            # Merge datasets
+            movies_df = movies_df.merge(credits_df, on="title")
+            movies_df = movies_df[["movie_id", "title", "overview", "genres", "keywords", "cast", "crew"]]
+            movies_df.dropna(inplace=True)
+            
+            # Helper functions with error handling
+            def safe_literal_eval(obj):
+                try:
+                    return ast.literal_eval(obj)
+                except (ValueError, SyntaxError):
+                    return []
+            
+            def convert(obj):
+                return [i["name"] for i in safe_literal_eval(obj) if isinstance(i, dict) and "name" in i]
+            
+            def convert_cast(obj):
+                cast_list = []
+                for i, val in enumerate(safe_literal_eval(obj)):
+                    if i < 3 and isinstance(val, dict) and "name" in val:
+                        cast_list.append(val["name"])
+                return cast_list
+            
+            def fetch_director(obj):
+                crew_list = safe_literal_eval(obj)
+                for i in crew_list:
+                    if isinstance(i, dict) and i.get("job") == "Director" and "name" in i:
+                        return [i["name"]]
+                return []
+            
+            # Process data with progress updates
+            st.info("📊 Processing movie data...")
+            movies_df["genres"] = movies_df["genres"].apply(convert)
+            movies_df["keywords"] = movies_df["keywords"].apply(convert)
+            movies_df["cast"] = movies_df["cast"].apply(convert_cast)
+            movies_df["crew"] = movies_df["crew"].apply(fetch_director)
+            movies_df["overview"] = movies_df["overview"].apply(lambda x: str(x).split())
+            
+            # Remove spaces
+            movies_df["genres"] = movies_df["genres"].apply(lambda x: [i.replace(" ", "") for i in x] if isinstance(x, list) else [])
+            movies_df["keywords"] = movies_df["keywords"].apply(lambda x: [i.replace(" ", "") for i in x] if isinstance(x, list) else [])
+            movies_df["cast"] = movies_df["cast"].apply(lambda x: [i.replace(" ", "") for i in x] if isinstance(x, list) else [])
+            movies_df["crew"] = movies_df["crew"].apply(lambda x: [i.replace(" ", "") for i in x] if isinstance(x, list) else [])
+            
+            # Create tags
+            movies_df["tags"] = (
+                movies_df["overview"] + movies_df["genres"] + 
+                movies_df["keywords"] + movies_df["cast"] + movies_df["crew"]
+            )
+            
+            new_df = movies_df[["movie_id", "title", "tags"]].copy()
+            new_df["tags"] = new_df["tags"].apply(lambda x: " ".join(str(i) for i in x).lower() if isinstance(x, list) else "")
+            
+            # Vectorization
+            st.info("🔢 Creating movie vectors...")
+            cv = CountVectorizer(max_features=5000, stop_words="english")
+            vectors = cv.fit_transform(new_df["tags"]).toarray()
+            
+            # Cosine similarity
+            st.info("📏 Calculating similarity matrix...")
+            similarity = cosine_similarity(vectors)
+            
+            # Convert to dict for consistency
+            movies_dict = new_df.to_dict()
+            
+            # Save for future use
+            try:
+                pickle.dump(movies_dict, open("movies_dict.pkl", "wb"))
+                pickle.dump(similarity, open("similarity.pkl", "wb"))
+                st.success("💾 Data rebuilt and saved to pickle files")
+            except Exception as save_error:
+                st.warning(f"Could not save pickle files: {str(save_error)}")
+            
+            return pd.DataFrame(movies_dict), similarity
+            
+        except Exception as rebuild_error:
+            st.error(f"❌ Failed to rebuild data: {str(rebuild_error)}")
+            st.error("Please check that tmdb_5000_movies.csv and tmdb_5000_credits.csv are present and valid.")
+            raise rebuild_error
 
-similarity = pickle.load(open("similarity.pkl", "rb"))
+st.header("Movie Recommender System with AI")
+
+# Load or create data
+movies, similarity = load_or_create_data()
+
+movies_list = movies['title'].values
 
 
 movies_list = movies['title'].values

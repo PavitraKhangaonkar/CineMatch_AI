@@ -86,9 +86,17 @@ def load_or_create_data():
         st.info("🔄 This may take a few minutes...")
         
         try:
-            # Rebuild data from CSV files
+            # Try to read CSV files locally first
             movies_df = pd.read_csv("tmdb_5000_movies.csv")
             credits_df = pd.read_csv("tmdb_5000_credits.csv")
+        except FileNotFoundError:
+            # If local files not found, download from GitHub
+            st.info("📥 Downloading data files from GitHub...")
+            movies_url = "https://raw.githubusercontent.com/PavitraKhangaonkar/Cinematch_AI/main/tmdb_5000_movies.csv"
+            credits_url = "https://raw.githubusercontent.com/PavitraKhangaonkar/Cinematch_AI/main/tmdb_5000_credits.csv"
+            
+            movies_df = pd.read_csv(movies_url)
+            credits_df = pd.read_csv(credits_url)
             
             # Merge datasets
             movies_df = movies_df.merge(credits_df, on="title")

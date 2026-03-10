@@ -18,6 +18,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# -----------------------------------------------------------------------------
+# BACKGROUND IMAGE
+# -----------------------------------------------------------------------------
+def add_bg_from_url():
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("https://images.unsplash.com/photo-1489599849927-2ee91cede3ba");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+add_bg_from_url()
 def fetch_poster(movie_id):
     try:
         url=f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={TMDB_API_KEY}&language=en-US"

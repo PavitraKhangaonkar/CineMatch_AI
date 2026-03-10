@@ -44,7 +44,56 @@ Streamlit UI + TMDB Posters
 
 
 
-🌐 Deployment (Render)
+🌐 Deployment
+
+## Prerequisites
+1. **TMDB API Key**: Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
+2. **GitHub Repository**: Your code should be pushed to GitHub
+
+## Deployment Options
+
+### 1. Streamlit Cloud (Recommended - Free & Easy)
+1. Go to [share.streamlit.io](https://share.streamlit.io)
+2. Connect your GitHub account
+3. Select the `Cinematch_AI` repository
+4. Set main file path to `app.py`
+5. Add secret: `TMDB_API_KEY` = your_api_key
+6. Click Deploy
+
+### 2. Render (Free tier available)
+1. Go to [render.com](https://render.com) and sign up
+2. Click "New +" → "Web Service"
+3. Connect your GitHub repo
+4. Configure:
+   - Runtime: Python 3
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `streamlit run app.py --server.port $PORT --server.headless true --server.runOnSave false`
+5. Add environment variable: `TMDB_API_KEY` = your_api_key
+6. Click Create Web Service
+
+### 3. Heroku
+1. Install Heroku CLI
+2. Login: `heroku login`
+3. Create app: `heroku create your-app-name`
+4. Set environment variable: `heroku config:set TMDB_API_KEY=your_api_key`
+5. Deploy: `git push heroku main`
+
+### 4. Docker (For any cloud provider)
+1. Build image: `docker build -t cinematch-ai .`
+2. Run locally: `docker run -p 8501:8501 -e TMDB_API_KEY=your_key cinematch-ai`
+3. Deploy to Docker Hub, then to your preferred cloud platform
+
+## Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variable
+export TMDB_API_KEY=your_api_key
+
+# Run the app
+streamlit run app.py
+```
 
 -Deployed as a Render Web Service
 -Publicly accessible URL
